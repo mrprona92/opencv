@@ -1,22 +1,26 @@
 package com.example.framgiavuvietanh.opencvdemo;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.ActivityCompat.OnRequestPermissionsResultCallback;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ImageView;
 import com.example.framgiavuvietanh.opencvdemo.widgets.CropImageView;
 import com.example.framgiavuvietanh.opencvdemo.widgets.HighlightView;
 import java.io.File;
@@ -47,7 +51,7 @@ import static org.opencv.imgproc.Imgproc.getPerspectiveTransform;
 import static org.opencv.imgproc.Imgproc.threshold;
 import static org.opencv.imgproc.Imgproc.warpPerspective;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements OnRequestPermissionsResultCallback {
 
     private String mCurrentPhotoPath;
 
@@ -60,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
     private MatOfPoint2f mApproxCurve;
 
     private CropImageView mCropImageView;
+
+    private static final int REQUEST_ACCESS_CAMERA = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,25 +82,16 @@ public class MainActivity extends AppCompatActivity {
                     mSrc = null;
                     mApproxCurve = null;
                     mCropImageView.setImageBitmap(null);
-                    //startActivityForResult(new Intent(MainActivity.this, CameraActivity.class),
-                    //        102);
-                    Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                    // Ensure that there's a camera activity to handle the intent
-                    if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-                        // Create the File where the photo should go
-                        File photoFile = null;
-                        try {
-                            photoFile = createImageFile();
-                        } catch (IOException ex) {
-                            ex.printStackTrace();
-                            // Error occurred while creating the File
-                        }
-                        // Continue only if the File was successfully created
-                        if (photoFile != null) {
-                            Uri photoURI = FileProvider.getUriForFile(MainActivity.this,
-                                    "com.example.android.fileprovider", photoFile);
-                            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-                            startActivityForResult(takePictureIntent, 101);
+
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        //do your check here
+                        if (checkSelfPermission(android.Manifest.permission.CAMERA)
+                                == PackageManager.PERMISSION_GRANTED) {
+                            captureImage();
+                        } else {
+                            ActivityCompat.requestPermissions(MainActivity.this,
+                                    new String[] { Manifest.permission.CAMERA },
+                                    REQUEST_ACCESS_CAMERA);
                         }
                     }
                     //try {
@@ -361,5 +358,37 @@ public class MainActivity extends AppCompatActivity {
         double dy2 = p2.y - p0.y;
         return (dx1 * dx2 + dy1 * dy2) / Math.sqrt(
                 (dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            //resume tasks needing this permission
+            captureImage();
+        }
+    }
+
+    public void captureImage() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        // Ensure that there's a camera activity to handle the intent
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            // Create the File where the photo should go
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                // Error occurred while creating the File
+            }
+            // Continue only if the File was successfully created
+            if (photoFile != null) {
+                Uri photoURI = FileProvider.getUriForFile(MainActivity.this,
+                        "com.example.android.fileprovider", photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                startActivityForResult(takePictureIntent, 101);
+            }
+        }
     }
 }
